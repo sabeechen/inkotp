@@ -70,6 +70,26 @@ details in large type: the network name and password, then the page address
 To erase the device without the PIN, hold the top button while switching it on
 and follow the prompts.
 
+## Installing a release
+
+Each [release](https://github.com/sabeechen/inkotp/releases) carries two
+files, built by GitHub Actions from the tagged source. Flash them over USB
+with [esptool](https://docs.espressif.com/projects/esptool/) (`pip install
+esptool`), or from Chrome or Edge with Espressif's
+[browser flasher](https://espressif.github.io/esptool-js/).
+
+A first install, which **erases any accounts and settings on the device**:
+
+```sh
+esptool --chip esp32 write-flash 0x0 inkotp-coreink-0.1.0-full.bin
+```
+
+An update to a device that already runs InkOTP, which keeps them:
+
+```sh
+esptool --chip esp32 write-flash 0x10000 inkotp-coreink-0.1.0-update.bin
+```
+
 ## Building
 
 Requires [PlatformIO](https://platformio.org/).
@@ -97,7 +117,7 @@ python3 tools/mock_device.py
 | `web/index.html` | The setup page, embedded in the firmware image. |
 | `web/vendor/` | [jsQR](https://github.com/cozmo/jsQR) 1.4.0 (Apache-2.0), which reads QR codes from photos in the browser. |
 | `test/` | Host tests for `lib/otpcore`. |
-| `tools/` | Constant-table generator and the mock device. |
+| `tools/` | Constant-table generator, the mock device and the build step that makes the single-file image. |
 | `hardware/` | An unbuilt draft of a thinner custom board and a printed case. The firmware does not support it yet; see `hardware/README.md`. |
 
 ## Limitations

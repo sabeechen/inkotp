@@ -1,0 +1,86 @@
+# Tests and builds the firmware on every push and pull request.
+# Pushing a tag such as v0.1.0 also publishes the binaries as a release.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Read the version
+        id: version
+        run: |
+          version=$(sed -n 's/^#define INKOTP_VERSION "\(.*\)"/\1/p' src/version.h)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "$GITHUB_REF_NAME" = "v${{ steps.version.outputs.version }}"
+
+      - name: Run the host tests
+        run: pio test -e native
+
+      - name: Build the firmware
+        run: pio run -e coreink
+
+      - name: Collect the binaries
+        run: |
+          mkdir dist
+          v=${{ steps.version.outputs.version }}
+          cp .pio/build/coreink/inkotp-coreink-full.bin "dist/inkotp-coreink-$v-full.bin"
+          cp .pio/build/coreink/firmware.bin "dist/inkotp-coreink-$v-update.bin"
+          cd dist && sha256sum *.bin > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inkotp-coreink-${{ steps.version.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: inkotp-coreink-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "InkOTP ${{ needs.build.outputs.version }}" \
+            --notes-file .github/release-notes.md
