@@ -1,0 +1,35 @@
+References,Quantity,Value,Footprint,Manufacturer,Part number,Note
+BZ1,1,CPT-9019A-SMT,Buzzer_Murata_PKMCS0909E,Same Sky,CPT-9019A-SMT-TR,"piezo sounder, 9 x 9 x 1.9 mm"
+C1 C2 C21,3,4.7u,C_0603_1608Metric,,,"ceramic capacitor, X5R or X7R"
+C3 C4 C9 C19 C20,5,1u,C_0402_1005Metric,,,"ceramic capacitor, X5R or X7R"
+C5 C7,2,10u,C_0603_1608Metric,,,"ceramic capacitor, X5R or X7R"
+C6 C8 C10 C11,4,100n,C_0402_1005Metric,,,"ceramic capacitor, X5R or X7R"
+C12,1,4.7u 25V,C_0603_1608Metric,,,"ceramic capacitor, X5R or X7R, 25 V or higher"
+C13 C14 C15 C16 C17 C18,6,1u 25V,C_0603_1608Metric,,,"ceramic capacitor, X5R or X7R, 25 V or higher"
+C22,1,DNP,C_0603_1608Metric,,,not fitted
+D1,1,BAV70,SOT-23,Nexperia,"BAV70,215","dual switching diode, common cathode; not a Schottky, which leaks too much"
+D2 D3 D4,3,NSR0530H,D_SOD-323,onsemi,NSR0530HT1G,30 V 0.5 A Schottky
+J1,1,USB-C,USB_C_MidMount,GCT,USB4505-03-0-A,"mid-mount, 1.0 mm offset"
+J2,1,Battery,BatteryPads,,,"solder pads only, no part"
+J3,1,Panel FPC,Hirose_FH34SRJ-24S-0.5SH,Hirose,FH34SRJ-24S-0.5SH(50),"24 pin 0.5 mm, contacts on both faces, 1.0 mm tall"
+J4,1,SM02B-SRSS-TB,JST_SH_SM02B-SRSS-TB,JST,SM02B-SRSS-TB,"battery socket, JST SH 2 pin side entry, 2.9 mm tall; optional, the pads at J2 do the same job"
+L1,1,47u,L_Wuerth_WE-LQS-3015,Wurth,74404032470,"47 uH, 3 x 3 x 1.5 mm, 0.41 A saturation; the panel datasheet asks for 0.5 A"
+Q1,1,AO3401A,SOT-23,Alpha & Omega,AO3401A,"P-channel, battery switch"
+Q2 Q3,2,BSS138,SOT-23,onsemi,BSS138,"N-channel, logic level"
+Q4,1,AO3400A,SOT-23,Alpha & Omega,AO3400A,"N-channel 30 V, panel boost switch"
+R1 R2,2,5.1k,R_0402_1005Metric,,,"resistor, 1 %"
+R3 R11 R13 R14 R16,5,10k,R_0402_1005Metric,,,"resistor, 1 %"
+R4 R7 R8,3,100k,R_0402_1005Metric,,,"resistor, 1 %"
+R5 R12,2,1k,R_0402_1005Metric,,,"resistor, 1 %"
+R6 R9 R10,3,1M,R_0402_1005Metric,,,"resistor, 1 %"
+R15,1,220,R_0402_1005Metric,,,"resistor, 1 %"
+R17,1,2.2,R_0402_1005Metric,,,"resistor, 1 %"
+SW1 SW2 SW3 SW4,4,EVQP7J01P,SW_SPST_EVQP7A,Panasonic,EVQP7J01P,"side-push tactile switch, 1.6 N, 1.35 mm tall"
+U1,1,ESP32-S3-MINI-1-N8,ESP32-S3-MINI-1,Espressif,ESP32-S3-MINI-1-N8,"PCB antenna version, 8 MB flash"
+U2,1,AP2112K-3.3,SOT-23-5,Diodes Inc.,AP2112K-3.3TRG1,600 mA LDO with enable
+U3,1,MCP73832T-2ACI/OT,SOT-23-5,Microchip,MCP73832T-2ACI/OT,"4.2 V charger, open-drain status"
+U4,1,USBLC6-2SC6,SOT-23-6,STMicroelectronics,USBLC6-2SC6,USB ESD protection
+U5,1,RV-3032-C7,MicroCrystal_C7_SON-8_1.5x3.2mm_P0.9mm,Micro Crystal,RV-3032-C7-32.768KHZ-2.5PPM-TA-QC,temperature-compensated clock
+Panel,1,,off board,Good Display,GDEY0154D67,1.54 in 200 x 200 e-ink panel
+Battery,1,,off board,,"LiPo 3.7 V, about 3 x 26 x 30 mm, with protection circuit","for example a 302530 cell, 200 to 250 mAh"
+PCB,1,,off board,,"4 layer, 1.0 mm thick, 32 x 54.5 mm","0.127 mm track and gap, 0.2 mm drill"

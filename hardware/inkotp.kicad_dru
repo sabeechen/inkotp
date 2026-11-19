@@ -1,0 +1,13 @@
+(version 1)
+
+# JLCPCB asks for 0.15 mm between silkscreen and a pad. Applied to the labels
+# only: KiCad's stock footprints draw their outlines 0.1 mm from their pads.
+(rule "label to pad"
+	(constraint silk_clearance (min 0.15mm))
+	(condition "A.Type == 'Text' && B.Type == 'Pad'"))
+
+# The battery socket's courtyard is a plain rectangle whose empty corner
+# reaches into the USB port's. The parts themselves are 0.3 mm apart.
+(rule "battery socket beside USB port"
+	(constraint courtyard_clearance (min -2mm))
+	(condition "A.Reference == 'J4' && B.Reference == 'J1'"))

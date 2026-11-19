@@ -1,0 +1,25 @@
+# PlatformIO build output and editor files
+.pio/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# KiCad: per-user window state, backups, caches and lock files
+*.kicad_prl
+*-backups/
+_autosave-*
+*.kicad_pcb-bak
+*.kicad_sch-bak
+fp-info-cache
+*.lck
+
+# Autorouter exchange files
+*.dsn
+*.ses
+
+# The board model that `case.py check` exports from KiCad
+hardware/case/out/board.step

@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>InkOTP</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #181b22; --line: #2a2f3a; --text: #e6e8ee; --dim: #9099ab;
+    --accent: #6ea8fe; --danger: #ff6b6b; --ok: #5fd38d; --warn: #f2c14e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 620px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 0 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 0 0 12px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; padding-top: 0; }
+  .grow { flex: 1; min-width: 0; }
+  .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dim { color: var(--dim); font-size: 13px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--danger); }
+  label { display: block; font-size: 13px; color: var(--dim); margin: 12px 0 4px; }
+  input, select, textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input[type=checkbox] { width: auto; }
+  textarea { resize: vertical; min-height: 60px; font-family: ui-monospace, monospace; font-size: 13px; }
+  button {
+    background: var(--accent); color: #0b1220; border: 0; border-radius: 8px; padding: 9px 14px;
+    font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button.small { padding: 5px 10px; font-size: 13px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+  .pad button { padding: 14px 0; }
+  .pattern { font-size: 22px; letter-spacing: 6px; min-height: 34px; margin-top: 10px; }
+  details summary { cursor: pointer; color: var(--dim); font-size: 13px; margin-top: 12px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #262b36;
+    border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; display: none; max-width: 90%;
+  }
+  #login { max-width: 340px; margin: 18vh auto 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="login" hidden>
+    <h2>InkOTP</h2>
+    <p>Enter the code shown on the device screen.</p>
+    <input id="loginCode" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="8">
+    <div class="actions"><button id="loginBtn">Continue</button></div>
+  </section>
+
+  <div id="app" hidden>
+    <header><h1>InkOTP</h1><span class="dim" id="version"></span></header>
+
+    <section>
+      <h2>Clock</h2>
+      <div id="clockState"></div>
+      <div class="dim" id="clockDetail"></div>
+      <div class="actions"><button id="setClock">Set clock from this browser</button></div>
+    </section>
+
+    <section>
+      <h2>Accounts <span id="acctCount"></span></h2>
+      <div id="accounts"></div>
+      <form id="acctForm" autocomplete="off">
+        <input type="hidden" id="acctId">
+        <label for="acctLabel">Name</label>
+        <input id="acctLabel" maxlength="32" placeholder="e.g. Bitwarden">
+        <label for="acctSecret">Secret key, or an otpauth:// link</label>
+        <textarea id="acctSecret" spellcheck="false" autocapitalize="none"></textarea>
+        <div class="actions">
+          <button type="button" class="ghost" id="scanCamera">Photograph QR code</button>
+          <button type="button" class="ghost" id="scanImage">Choose image</button>
+          <input type="file" id="scanCameraFile" accept="image/*" capture="environment" hidden>
+          <input type="file" id="scanImageFile" accept="image/*" hidden>
+        </div>
+        <div class="dim" id="secretHint">Secrets can be replaced but never read back from the device.</div>
+        <details>
+          <summary>Advanced</summary>
+          <div class="cols">
+            <div><label for="acctAlgo">Algorithm</label>
+              <select id="acctAlgo"><option>SHA1</option><option>SHA256</option><option>SHA512</option></select></div>
+            <div><label for="acctDigits">Digits</label>
+              <select id="acctDigits"><option>6</option><option>7</option><option>8</option></select></div>
+            <div><label for="acctPeriod">Period (s)</label>
+              <input id="acctPeriod" type="number" min="5" max="300" value="30"></div>
+          </div>
+        </details>
+        <div class="actions">
+          <button type="submit" id="acctSave">Add account</button>
+          <button type="button" class="ghost" id="acctCancel" hidden>Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <h2>PIN lock</h2>
+      <div id="pinState"></div>
+      <div class="dim">A PIN is a sequence of 4 to 16 button presses on the device.</div>
+      <div class="pattern" id="pattern"></div>
+      <div class="pad">
+        <button type="button" class="ghost" data-k="U">&#9650; Up</button>
+        <button type="button" class="ghost" data-k="D">&#9660; Down</button>
+        <button type="button" class="ghost" data-k="P">&#9679; Press</button>
+        <button type="button" class="ghost" data-k="T">&#9632; Top</button>
+      </div>
+      <div class="actions">
+        <button id="pinSet">Set PIN</button>
+        <button class="ghost" id="pinClear">Clear</button>
+        <button class="danger" id="pinRemove" hidden>Remove PIN</button>
+      </div>
+      <label for="unlockMode">After unlocking, stay unlocked</label>
+      <div class="cols">
+        <select id="unlockMode">
+          <option value="wake">until it sleeps</option>
+          <option value="time">for a set time</option>
+          <option value="power">until the battery dies</option>
+        </select>
+        <input id="unlockNum" type="number" min="1" value="8">
+        <select id="unlockUnit"><option value="60">minutes</option><option value="3600" selected>hours</option><option value="86400">days</option></select>
+      </div>
+      <label for="maxTries">Wrong tries before the device wipes itself</label>
+      <input id="maxTries" type="number" min="3" max="50">
+    </section>
+
+    <section>
+      <h2>Wi-Fi for clock sync</h2>
+      <div class="dim">The device joins these networks only to fetch the time. Passwords cannot be read back.</div>
+      <div id="nets" style="margin-top:10px"></div>
+      <form id="netForm" autocomplete="off">
+        <label for="netSsid">Network name</label>
+        <input id="netSsid" maxlength="32" autocapitalize="none">
+        <label for="netPass">Password</label>
+        <input id="netPass" type="password" maxlength="64" autocomplete="new-password">
+        <div class="actions"><button type="submit">Save network</button></div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Device</h2>
+      <label for="sleepSecs">Sleep after this many idle seconds</label>
+      <input id="sleepSecs" type="number" min="15" max="3600">
+      <label for="owner">Text on the sleep screen (e.g. "If found: 555-0100")</label>
+      <input id="owner" maxlength="30">
+      <label><input type="checkbox" id="compact"> Compact view: show three codes per screen</label>
+      <label><input type="checkbox" id="sounds"> Button sounds: a click when a press registers</label>
+      <label><input type="checkbox" id="autoSync"> Refresh the clock automatically when it is over a week old</label>
+      <div class="actions"><button id="saveSettings">Save settings</button></div>
+    </section>
+
+    <section>
+      <h2>Erase</h2>
+      <div class="dim">Removes every account, network, setting and the PIN.</div>
+      <div class="actions"><button class="danger" id="wipe">Erase everything</button></div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let token = '';
+let state = null;
+let pattern = '';
+
+try { token = sessionStorage.getItem('inkotp') || ''; } catch (e) {}
+
+// The device's QR code carries the access code after the '#', where it is
+// never sent to the server as part of a request line.
+function takeHashToken() {
+  if (location.hash.length <= 1) return false;
+  token = location.hash.slice(1);
+  history.replaceState(null, '', location.pathname);
+  return true;
+}
+takeHashToken();
+window.onhashchange = () => { if (takeHashToken()) start(); };
+
+function toast(msg, bad) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = bad ? 'bad' : '';
+  t.style.display = 'block';
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+async function api(path, params) {
+  const opts = { headers: { 'X-Auth': token } };
+  if (params) {
+    opts.method = 'POST';
+    opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    opts.body = new URLSearchParams(params).toString();
+  }
+  let res;
+  try {
+    res = await fetch(path, opts);
+  } catch (e) {
+    throw new Error('Device not reachable. Is setup mode still open?');
+  }
+  if (res.status === 401) { showLogin(); throw new Error('Wrong or expired code'); }
+  const body = await res.json();
+  if (!body.ok) throw new Error(body.error || 'Request failed');
+  return body;
+}
+
+async function act(path, params, done) {
+  try {
+    await api(path, params);
+    if (done) toast(done);
+    await refresh();
+    return true;
+  } catch (e) {
+    toast(e.message, true);
+    return false;
+  }
+}
+
+function showLogin() {
+  $('app').hidden = true;
+  $('login').hidden = false;
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function ago(secs) {
+  if (secs < 120) return 'just now';
+  if (secs < 7200) return Math.round(secs / 60) + ' minutes ago';
+  if (secs < 172800) return Math.round(secs / 3600) + ' hours ago';
+  return Math.round(secs / 86400) + ' days ago';
+}
+
+function render() {
+  const s = state;
+  $('version').textContent = 'v' + s.version + ' · battery ' + s.battery + '%';
+
+  const drift = s.time.valid ? Math.round(s.time.now - Date.now() / 1000) : 0;
+  const cs = $('clockState');
+  if (!s.time.valid) {
+    cs.textContent = 'Clock is not set. Codes are hidden until it is.';
+    cs.className = 'bad';
+  } else if (Math.abs(drift) > 5) {
+    cs.textContent = 'Clock is ' + Math.abs(drift) + ' s ' + (drift > 0 ? 'ahead of' : 'behind') + ' this browser.';
+    cs.className = 'warn';
+  } else {
+    cs.textContent = 'Clock matches this browser.';
+    cs.className = 'ok';
+  }
+  $('clockDetail').textContent = s.time.lastSync
+    ? 'Last set ' + ago(s.time.now - s.time.lastSync) + '.' : 'Never set.';
+
+  $('acctCount').textContent = '(' + s.accounts.length + ' of ' + s.maxAccounts + ')';
+  const list = $('accounts');
+  list.replaceChildren();
+  for (const a of s.accounts) {
+    const row = el('div', 'row');
+    const info = el('div', 'grow');
+    info.append(el('div', 'name', a.label),
+                el('div', 'dim', a.algo + ' · ' + a.digits + ' digits · ' + a.period + ' s'));
+    const at = s.accounts.indexOf(a);
+    const up = el('button', 'ghost small', '\u25B2');
+    up.title = 'Move up';
+    up.disabled = at === 0;
+    up.onclick = () => act('/api/account/move', { id: a.id, dir: 'up' });
+    const down = el('button', 'ghost small', '\u25BC');
+    down.title = 'Move down';
+    down.disabled = at === s.accounts.length - 1;
+    down.onclick = () => act('/api/account/move', { id: a.id, dir: 'down' });
+    const edit = el('button', 'ghost small', 'Edit');
+    edit.onclick = () => editAccount(a);
+    const del = el('button', 'danger small', 'Delete');
+    del.onclick = () => {
+      if (confirm('Delete "' + a.label + '" from the device?')) act('/api/account/delete', { id: a.id }, 'Deleted');
+    };
+    row.append(info, up, down, edit, del);
+    list.append(row);
+  }
+
+  const nets = $('nets');
+  nets.replaceChildren();
+  for (const ssid of s.nets) {
+    const row = el('div', 'row');
+    const del = el('button', 'danger small', 'Forget');
+    del.onclick = () => act('/api/wifi/delete', { ssid }, 'Forgotten');
+    row.append(el('div', 'grow name', ssid), del);
+    nets.append(row);
+  }
+
+  const ps = $('pinState');
+  if (s.pin.pending) {
+    ps.textContent = 'Now enter the new PIN on the device to confirm it.';
+    ps.className = 'warn';
+  } else if (s.pin.enabled) {
+    ps.textContent = 'PIN is on (' + s.pin.length + ' presses).';
+    ps.className = 'ok';
+  } else {
+    ps.textContent = 'PIN is off. Anyone holding the device can read codes.';
+    ps.className = 'dim';
+  }
+  $('pinRemove').hidden = !s.pin.enabled;
+  if (s.pin.result) toast(s.pin.result === 'confirmed' ? 'PIN set' : 'PIN not set: ' + s.pin.result,
+                          s.pin.result !== 'confirmed');
+  clearTimeout(render.poll);
+  if (s.pin.pending) render.poll = setTimeout(refresh, 1500);
+}
+
+function fillSettings() {
+  const st = state.settings;
+  $('sleepSecs').value = st.sleepSecs;
+  $('owner').value = st.owner;
+  $('autoSync').checked = st.autoSync;
+  $('compact').checked = st.compact;
+  $('sounds').checked = st.sounds;
+  $('maxTries').value = st.maxTries;
+  if (st.unlockSecs === 0) {
+    $('unlockMode').value = 'wake';
+  } else if (st.unlockSecs === 4294967295) {
+    $('unlockMode').value = 'power';
+  } else {
+    $('unlockMode').value = 'time';
+    const unit = [86400, 3600, 60].find((u) => st.unlockSecs % u === 0) || 60;
+    $('unlockUnit').value = unit;
+    $('unlockNum').value = Math.max(1, Math.round(st.unlockSecs / unit));
+  }
+  syncUnlockInputs();
+}
+
+function syncUnlockInputs() {
+  const timed = $('unlockMode').value === 'time';
+  $('unlockNum').hidden = !timed;
+  $('unlockUnit').hidden = !timed;
+}
+
+async function refresh() {
+  state = await api('/api/state');
+  render();
+}
+
+function editAccount(a) {
+  $('acctId').value = a.id;
+  $('acctLabel').value = a.label;
+  $('acctSecret').value = '';
+  $('acctAlgo').value = a.algo;
+  $('acctDigits').value = a.digits;
+  $('acctPeriod').value = a.period;
+  $('secretHint').textContent = 'Leave the secret empty to keep the current one.';
+  $('acctSave').textContent = 'Save changes';
+  $('acctCancel').hidden = false;
+  $('acctLabel').focus();
+}
+
+function resetAccountForm() {
+  $('acctForm').reset();
+  $('acctId').value = '';
+  $('secretHint').textContent = 'Secrets can be replaced but never read back from the device.';
+  $('acctSave').textContent = 'Add account';
+  $('acctCancel').hidden = true;
+}
+
+function drawPattern() {
+  const glyph = { U: '▲', D: '▼', P: '●', T: '■' };
+  $('pattern').textContent = [...pattern].map((k) => glyph[k]).join('');
+}
+
+$('acctForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const secret = $('acctSecret').value.trim();
+  const params = {
+    id: $('acctId').value, label: $('acctLabel').value,
+    algo: $('acctAlgo').value, digits: $('acctDigits').value, period: $('acctPeriod').value,
+  };
+  if (secret.toLowerCase().startsWith('otpauth://')) params.uri = secret; else params.secret = secret;
+  if (await act('/api/account', params, 'Saved')) resetAccountForm();
+};
+$('acctCancel').onclick = resetAccountForm;
+
+// Browsers only allow a live camera view over HTTPS, which the device does not
+// serve. A file input still works: the phone takes a photo, or the user picks
+// an image, and the QR code is read here in the browser.
+function loadDecoder() {
+  if (!loadDecoder.pending) {
+    loadDecoder.pending = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/jsqr.js';
+      s.onload = resolve;
+      s.onerror = () => { loadDecoder.pending = null; reject(new Error('Could not load the QR reader')); };
+      document.head.appendChild(s);
+    });
+  }
+  return loadDecoder.pending;
+}
+
+async function readQr(file) {
+  await loadDecoder();
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch (e) { throw new Error('That file is not an image'); }
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const longest = Math.max(img.naturalWidth, img.naturalHeight);
+    // A phone photo is far larger than the decoder needs, and a code that is
+    // missed at one size is often found at another.
+    let last = 0;
+    for (const size of [1000, 600, 1600, 350]) {
+      const scale = Math.min(1, size / longest);
+      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      if (w === last) continue;
+      last = w;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      const found = jsQR(ctx.getImageData(0, 0, w, h).data, w, h);
+      if (found && found.data) return found.data;
+    }
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// The name inside an otpauth:// link, cut down to what the device can show.
+function uriLabel(uri) {
+  try {
+    const path = uri.slice('otpauth://totp/'.length).split('?')[0];
+    return decodeURIComponent(path).replace(/[^\x20-\x7e]/g, '').trim().slice(0, 32);
+  } catch (e) {
+    return '';
+  }
+}
+
+async function scanFrom(input, button) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const caption = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Reading...';
+  try {
+    const text = await readQr(file);
+    if (!text) {
+      toast('No QR code found. Try again with the code filling the picture.', true);
+    } else if (text.toLowerCase().startsWith('otpauth-migration:')) {
+      toast('That is an authenticator app export code, which is not supported.', true);
+    } else if (!text.toLowerCase().startsWith('otpauth://totp/')) {
+      toast('That QR code is not a one-time-code setup code.', true);
+    } else {
+      $('acctSecret').value = text;
+      if (!$('acctLabel').value) $('acctLabel').value = uriLabel(text);
+      toast('QR code read. Check the name, then save.');
+    }
+  } catch (e) {
+    toast(e.message, true);
+  }
+  button.disabled = false;
+  button.textContent = caption;
+}
+
+$('scanCamera').onclick = () => $('scanCameraFile').click();
+$('scanImage').onclick = () => $('scanImageFile').click();
+$('scanCameraFile').onchange = () => scanFrom($('scanCameraFile'), $('scanCamera'));
+$('scanImageFile').onchange = () => scanFrom($('scanImageFile'), $('scanImage'));
+
+$('netForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if (await act('/api/wifi', { ssid: $('netSsid').value, pass: $('netPass').value }, 'Network saved')) {
+    $('netForm').reset();
+  }
+};
+
+$('setClock').onclick = () => act('/api/time',
+  { ms: Date.now(), tz: -new Date().getTimezoneOffset() }, 'Clock set');
+
+for (const b of document.querySelectorAll('.pad button')) {
+  b.onclick = () => { if (pattern.length < 16) { pattern += b.dataset.k; drawPattern(); } };
+}
+$('pinClear').onclick = () => { pattern = ''; drawPattern(); };
+$('pinSet').onclick = async () => {
+  if (pattern.length < 4) return toast('Use at least 4 presses', true);
+  if (await act('/api/pin', { pattern })) { pattern = ''; drawPattern(); }
+};
+$('pinRemove').onclick = () => { if (confirm('Remove the PIN?')) act('/api/pin', { pattern: '' }, 'PIN removed'); };
+$('unlockMode').onchange = syncUnlockInputs;
+
+$('saveSettings').onclick = saveSettings;
+$('maxTries').onchange = saveSettings;
+$('unlockMode').addEventListener('change', saveSettings);
+$('unlockNum').onchange = saveSettings;
+$('unlockUnit').onchange = saveSettings;
+
+function saveSettings() {
+  const mode = $('unlockMode').value;
+  let unlock = 0;
+  if (mode === 'power') unlock = 4294967295;
+  if (mode === 'time') unlock = Math.max(1, +$('unlockNum').value || 1) * +$('unlockUnit').value;
+  return act('/api/settings', {
+    sleepSecs: $('sleepSecs').value, owner: $('owner').value,
+    autoSync: $('autoSync').checked ? 1 : 0, compact: $('compact').checked ? 1 : 0,
+    sounds: $('sounds').checked ? 1 : 0, maxTries: $('maxTries').value,
+    unlockSecs: Math.min(unlock, 4294967295), tz: -new Date().getTimezoneOffset(),
+  }, 'Settings saved');
+}
+
+$('wipe').onclick = async () => {
+  if (prompt('Type ERASE to remove everything from the device.') !== 'ERASE') return;
+  try {
+    await api('/api/wipe', { confirm: 'ERASE' });
+    toast('Erased. The device is restarting.');
+  } catch (e) { toast(e.message, true); }
+};
+
+async function start() {
+  if (!token) return showLogin();
+  try {
+    await refresh();
+    try { sessionStorage.setItem('inkotp', token); } catch (e) {}
+    fillSettings();
+    $('login').hidden = true;
+    $('app').hidden = false;
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+$('loginBtn').onclick = () => { token = $('loginCode').value.trim().toLowerCase(); start(); };
+$('loginCode').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
+start();
+</script>
+</body>
+</html>
